@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Net.Http.Headers;
 
@@ -802,6 +803,54 @@ public static class TypedResults
     }
 
     /// <summary>
+    /// Produces a <see cref="ProblemDetails"/> response with injected <see cref="ProblemDetailsFactory"/>
+    /// </summary>
+    /// <param name="httpContext">The <see cref="HttpContext" />.</param>
+    /// <param name="detail">The value for <see cref="ProblemDetails.Detail"/>.</param>
+    /// <param name="instance">The value for <see cref="ProblemDetails.Instance" />.</param>
+    /// <param name="statusCode">The value for <see cref="ProblemDetails.Status"/>.</param>
+    /// <param name="title">The value for <see cref="ProblemDetails.Title" /></param>
+    /// <param name="type">The value for <see cref="ProblemDetails.Type" />.</param>
+    /// <returns>The <see cref="ProblemHttpResult"/> instance.</returns>
+    public static ProblemHttpResult Problem(
+        HttpContext httpContext,
+        string? detail = null,
+        string? instance = null,
+        int? statusCode = null,
+        string? title = null,
+        string? type = null)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+
+        var factory = httpContext?.RequestServices?.GetRequiredService<ProblemDetailsFactory>();
+
+        ProblemDetails problemDetails;
+        if (factory == null)
+        {
+            problemDetails = new ProblemDetails
+            {
+                Detail = detail,
+                Instance = instance,
+                Status = statusCode ?? 500,
+                Title = title,
+                Type = type,
+            };
+        }
+        else
+        {
+            problemDetails = factory.CreateProblemDetails(
+                httpContext,
+                statusCode: statusCode ?? 500,
+                title: title,
+                type: type,
+                detail: detail,
+                instance: instance);
+        }
+
+        return new(problemDetails);
+    }
+
+    /// <summary>
     /// Produces a <see cref="StatusCodes.Status400BadRequest"/> response with an <see cref="HttpValidationProblemDetails"/> value.
     /// </summary>
     /// <param name="errors">One or more validation errors.</param>
@@ -837,7 +886,7 @@ public static class TypedResults
 
     /// <summary>
     /// Produces a <see cref="StatusCodes.Status201Created"/> response.
-    /// </summary>   
+    /// </summary>
     /// <returns>The created <see cref="HttpResults.Created"/> for the response.</returns>
     public static Created Created()
     {
